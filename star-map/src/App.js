@@ -1,7 +1,7 @@
 import React, {useRef, useEffect} from 'react';
 import logo from './logo.svg';
 import './App.css';
-import entries from './data/1587957625397O-result.json'
+import entries from './data/165kEntriesCube.json'
 import Quadtree from '@timohausmann/quadtree-js';
 
 const polarToCart = (rad, dist) => {
@@ -65,8 +65,9 @@ function clamp( x, min, max ) {
 
 }
 
-const parseStar = ([identifier,ra,dec,par,temp, radius, lum]) => {
-  const dist = ((1000/par)*Math.cos(dec))*20
+const parseStar = ([identifier,ra,dec,par,temp, radius, lum], scaleFactor=1) => {
+  const dist = ((1000/par)*Math.cos(dec))*scaleFactor
+  const height = ((1000/par)*Math.sin(dec))*scaleFactor
   const coords = polarToCart(ra, dist)
   return {
     id: identifier,
@@ -75,6 +76,7 @@ const parseStar = ([identifier,ra,dec,par,temp, radius, lum]) => {
     radius,
     lum,
     dec,
+    height,
   }
 }
 function getMousePos(canvas, evt) {
@@ -91,6 +93,7 @@ const canvasStyle = {
   top:'0px',
 }
 
+const distCap = 200
 const myDist = ({x:x1,y:y1}, {x:x2,y:y2}) => ((x1-x2)*(x1-x2))+((y1-y2)*(y1-y2))
 
 const sortPoints = (point, elems) => elems.sort((a,b) => myDist(point, a)-myDist(point, b))
@@ -103,25 +106,32 @@ function App() {
   useEffect(() => {
     if(canvasRef.current) {
       let ctx = canvasRef.current.getContext("2d");
-      ctx.fillRect(0,0,5000,5000);
+      const width = canvasRef.current.width;
+      const height = canvasRef.current.height
+      ctx.fillRect(0,0, width, height);
       ctx.fillStyle = "#0000FF";
-      ctx.fillRect(498,498,3,3);
+      ctx.fillRect(width/2-2,height/2-2,3,3);
       ctx.fillStyle = "#FFFFFF66";
-      entries.data.forEach(entry => {
-        const {coords: {x,y}, temp, dec} = parseStar(entry)
-        if(x > 1000 || y > 1000 || Math.abs(dec) > 15 ) return;
-        const colorHex = colorTemperatureToRGB(temp)
-        ctx.fillStyle = colorHex
-        ctx.fillRect(Math.floor(x)+500,Math.floor(y)+500,1,1);
-        myTree.insert({
-          x: Math.floor(x)+500,
-          y: Math.floor(y)+500,
-          width: 1,
-          height: 1,
-          color: colorHex,
-          temp,
-        })
+      let count = 0;
+      entries.forEach(entry => {
+        const {coords: {x,y}, temp, lum, height:starHeight, dec} = parseStar(entry, 1)
+        if(Math.abs(starHeight) < 10000 && Math.abs(x) < 10000 &&  Math.abs(y) < 10000 ) {
+          const colorHex = colorTemperatureToRGB(temp)
+          ctx.fillStyle = colorHex+componentToHex(clamp((lum*2)+55, 0, 255))
+          const size = lum>100?(clamp(1+(lum/300),0,3)):1
+          ctx.fillRect(Math.floor(x)+(width/2),Math.floor(y)+(height/2),size,size);
+          count++;
+          myTree.insert({
+            x: Math.floor(x)+(width/2),
+            y: Math.floor(y)+(height/2),
+            width: 1,
+            height: 1,
+            color: colorHex,
+            temp,
+          })
+        }
       });
+      console.log(count)
     }
       
   }, [canvasRef]);
@@ -129,8 +139,8 @@ function App() {
   const myTree = new Quadtree({
     x: 0,
     y: 0,
-    width: 1000,
-    height: 1000
+    width: window.screen.width,
+    height: window.screen.height,
   }, 50, 8);
 
   const handleCanvasHover = evt => {
@@ -146,7 +156,7 @@ function App() {
     console.log(message);
     console.log(sortedElems[0]);
     if(canvasRef2.current) {
-      const {x=0, y=0} = sortedElems[0];
+      const [{x=0, y=0}={}]= sortedElems;
       const context = canvasRef2.current.getContext("2d");
       context.clearRect(0, 0, canvasRef2.current.width, canvasRef2.current.height);
       context.fillStyle = "#00FF00";
@@ -158,8 +168,13 @@ function App() {
     <div className="App">
       <header className="App-header">
         <div>
-        <canvas style={canvasStyle} ref={canvasRef} width="1000" height="1000"></canvas>
-        <canvas style={canvasStyle} onMouseMove={handleCanvasHover} ref={canvasRef2} width="1000" height="1000"></canvas>
+        <canvas 
+        style={canvasStyle} 
+        ref={canvasRef} 
+        width={window.screen.width} 
+        height={window.screen.height}></canvas>
+        <canvas style={canvasStyle} onMouseMove={handleCanvasHover} ref={canvasRef2}  width={window.screen.width} 
+        height={window.screen.height}></canvas>
         </div>
       
         <a
@@ -168,7 +183,7 @@ function App() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          {JSON.stringify(parseStar(entries.data[0]))}
+          {JSON.stringify(parseStar(entries[0]))}
         </a>
       </header>
     </div>
