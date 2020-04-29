@@ -5,7 +5,7 @@ import CanvasWrapper from './CanvasWrapper'
 import {clamp} from '../DisplayUtils';
 import useBounds from '../useBounds';
 
-const getScaleBarSize = zoom => {
+const getScaleBar = zoom => {
   let length = zoom/4
   let units = ' Parsec'
   let scale = 0.25
@@ -44,6 +44,14 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
   const [zoom, setZoom] = useState(1);
   const [mouseDown, setMouseDown] = useState(false);
   const [pan, setPan] = useState({x:0, y:0});
+  const [parsedData, setParsedData] = useState([]);
+  const [myTree] = useState(new Quadtree({
+    x: 0,
+    y: 0,
+    width: 10000,
+    height: 10000,
+  }, 50, 8));
+
   const canvasStyle = {    
     position:'absolute',
     left:'0px',
@@ -54,17 +62,8 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
   
   const mapCtx = useRef(null);
   const hoverCtx = useRef(null);
-
-  const [myTree] = useState(new Quadtree({
-    x: 0,
-    y: 0,
-    width: 10000,
-    height: 10000,
-  }, 50, 8));
-
-  const [parsedData, setParsedData] = useState([]);
-  // const width = canvasStyle.width;
-  // const height = canvasStyle.height
+  const hoveredStar = useRef({})
+  
   const getScreenCoords = useCallback(({x,y}) => ({x:((x+pan.x)*zoom)+(width/2), y:((y+pan.y)*zoom)+(height/2)}),[zoom, width, height, pan])
   const getWorldCoords = useCallback(({x,y}) => ({x:(x-(width/2))/zoom-pan.x, y:(y-(height/2))/zoom-pan.y}),[zoom, width, height, pan])
 
@@ -96,29 +95,49 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
       ctx.fillStyle = "#FFFFFF66";
       let count = 0;
       console.log('redrawing with pan', pan)
-      parsedData.forEach(({x, y, color, size, isVisible, entry}) => {
+      parsedData.forEach(({x, y, color, size, opacity, isVisible, entry}) => {
         if ( isVisible) {
           const {x:sX, y:sY} = getScreenCoords({x,y})
           if(sX > 0 && sX < width && sY > 0 && sY < height) {
+            const s = clamp((entry[5]*2*zoom)/4.435e+7, size, 1000)
             ctx.fillStyle = color;
-            const s = clamp((entry[6]*zoom)/4.435e+7, size, 1000)
-            ctx.fillRect(sX,sY,s,s);
+            if(s === size) ctx.fillStyle = color+opacity
+            
+            ctx.fillRect(sX-s/2,sY-s/2,s,s);
             count++;
           }
         }
       })
       ctx.font = "12px Verdana";
       ctx.fillStyle = "#FFFFFF";
-      const {label, length} = getScaleBarSize(zoom);
+      const {label, length} = getScaleBar(zoom);
       ctx.fillText(label, 20, height-30);
       ctx.fillRect(20, height-20, length , 3);
-      
-     
-      console.log(count)
+      if(hoverCtx.current && hoveredStar.current.loc) {
+        drawSelectedStar(hoverCtx.current, hoveredStar.current)
+      }
     }
       
   });
 
+ 
+  const drawSelectedStar = (ctx, {loc, entry}) => {
+    ctx.clearRect(0, 0, canvasStyle.width, canvasStyle.height);
+    ctx.fillStyle = "#00FF00";
+    const {x:drawX, y:drawY} = getScreenCoords(loc)
+    ctx.fillRect(drawX-1,drawY-1,3,3);
+    ctx.font = "12px Verdana";
+    ctx.fillStyle = "#FFFFFF";
+    if(entry) {
+      console.log('Hovered star loc', loc)
+      const [identifier,ra,dec,par,temp, radius, lum] = entry;
+      ctx.fillText('Star: '+identifier, 20, 20);
+      ctx.fillText('Distance: '+(1000/par).toFixed(1)+' Parsecs', 20, 40);
+      ctx.fillText('Temp: '+temp.toFixed()+'K', 20, 60);
+      ctx.fillText('Radius: '+radius.toFixed(2)+'R☉', 20, 80);
+      ctx.fillText('Luminosity : '+lum.toFixed(2)+'L☉', 20, 100);
+    }
+  }
 
 
   const handleCanvasHover = (mousePos, event) => {
@@ -137,11 +156,10 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
       if(hoverCtx.current) {
         const [{loc={}, entry}={}]= sortedElems;
         const ctx = hoverCtx.current
-        ctx.clearRect(0, 0, canvasStyle.width, canvasStyle.height);
-        console.log(entry[5])
-        ctx.fillStyle = "#00FF00";
-        const {x:drawX, y:drawY} = getScreenCoords(loc)
-        ctx.fillRect(drawX-1,drawY-1,3,3);
+        hoveredStar.current = {loc, entry}
+        drawSelectedStar(ctx, hoveredStar.current)
+        
+
         if(onStarHover && entry) onStarHover(entry)
       }
     }
@@ -161,7 +179,7 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
       onMouseDown={() => setMouseDown(true)}
       onMouseUp={() => setMouseDown(false)}
       onMouseMove={handleCanvasHover} 
-      onDoubleClick={() => console.log('CLICK')}
+      onDoubleClick={(mousePos) => setPan({x:-hoveredStar.current.loc.x, y:-hoveredStar.current.loc.y})}
       onWheel={handleScroll} 
       onContextChange={c => hoverCtx.current = c}
       />

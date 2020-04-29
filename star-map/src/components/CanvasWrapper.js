@@ -8,7 +8,7 @@ function getMousePos(canvas, evt) {
     y: evt.clientY - rect.top
   };
 }
-const CanvasWrapper = ({onContextChange, onMouseMove, onClick, onMouseLeave, style, ...props}) => {
+const CanvasWrapper = ({onContextChange, onMouseMove, onDoubleClick, onMouseLeave, style, ...props}) => {
   
   const canvasRef = useRef(null);
   console.log('rendering with height', style.height)
@@ -16,6 +16,7 @@ const CanvasWrapper = ({onContextChange, onMouseMove, onClick, onMouseLeave, sty
   useEffect(() => {
     if(canvasRef.current) {
       let ctx = canvasRef.current.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
       const width = canvasRef.current.width;
       const height = canvasRef.current.height;
       onContextChange(ctx, {width, height});
@@ -30,9 +31,9 @@ const CanvasWrapper = ({onContextChange, onMouseMove, onClick, onMouseLeave, sty
   }
 
   const handleCanvasClick = evt => {
-    if(onClick) {
+    if(onDoubleClick) {
       const mousePos = getMousePos(canvasRef.current, evt);
-      onClick(mousePos, evt)
+      onDoubleClick(mousePos, evt)
     }
   }
 
@@ -43,7 +44,7 @@ const CanvasWrapper = ({onContextChange, onMouseMove, onClick, onMouseLeave, sty
       width={style.width} 
       height={style.height}
       onMouseMove={handleCanvasHover}
-      onClick={handleCanvasClick}
+      onDoubleClick={handleCanvasClick}
       onMouseLeave={onMouseLeave}
       {...props}
     ></canvas>
