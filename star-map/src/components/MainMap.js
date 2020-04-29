@@ -38,6 +38,57 @@ const getScaleBar = zoom => {
 const myDist = ({x:x1,y:y1}, {x:x2,y:y2}) => ((x1-x2)*(x1-x2))+((y1-y2)*(y1-y2));
 const sortPoints = (point, elems) => elems.sort(({loc:a},{loc:b}) => myDist(point, a)-myDist(point, b));
 
+const getTouchCoords = ({clientX, clientY}) => ({x:clientX, y:clientY})
+const useTouchTracking = (panEvent, zoomEvent, hoverEvent) => {
+  let activeTouches = useRef({})
+  return {
+    canvasProps: {
+      onTouchStart:e => {
+        [...Array(e.changedTouches.length).keys()].forEach(k => {
+          const t = e.changedTouches[k];
+          activeTouches.current[t.identifier] = getTouchCoords(t)
+        }) 
+        if(e.touches.length == 1) {
+          hoverEvent( getTouchCoords(e.touches[0]))
+        }
+        e.preventDefault();
+      },
+      onTouchEnd:e => {
+        [...Array(e.changedTouches.length).keys()].forEach(k => {
+          const t = e.changedTouches[k];
+          delete activeTouches.current[t.identifier];
+        })
+        e.preventDefault();
+      },
+      onTouchMove:e => {
+        console.log({...e})
+        if(e.touches.length == 2) {
+          if(activeTouches.current[e.touches[0].identifier] && activeTouches.current[e.touches[1].identifier]) {
+            const o1 = activeTouches.current[e.touches[0].identifier];
+            const o2 = activeTouches.current[e.touches[1].identifier];
+            const n1 = getTouchCoords(e.touches[0]);
+            const n2 = getTouchCoords(e.touches[1])
+            const oDist = myDist(o1,o2)
+            const nDist = myDist(n1, n2)
+            activeTouches.current[e.touches[0].identifier] = n1;
+            activeTouches.current[e.touches[1].identifier] = n2
+            zoomEvent((Math.sqrt(nDist)-Math.sqrt(oDist))/10)
+            const dx = (n1.x+n2.x)/2-(o1.x+o2.x)/2
+            const dy = (n1.y+n2.y)/2-(o1.y+o2.y)/2
+            panEvent({x:dx, y:dy})
+          }
+          
+        }
+        else {
+          hoverEvent( getTouchCoords(e.touches[0]))
+        }
+         
+      }
+    },
+
+  }
+}
+
 function MainMap({data, parseStar, onStarHover, onStarSelect}) {
 
   const {width, height} = useBounds();
@@ -51,6 +102,38 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
     width: 10000,
     height: 10000,
   }, 50, 8));
+
+  const handleCanvasHover = (mousePos, event) => {
+    if(mouseDown) {
+      
+      const {movementX, movementY} = event;
+      console.log('movement', movementX, movementY);
+      setPan({x:pan.x+movementX/zoom, y:pan.y+movementY/zoom})
+    } else {
+      const {x,y} = getWorldCoords(mousePos)
+      const elements = myTree.retrieve({x:Math.abs(x), y:Math.abs(y), width:8, height:8});
+      //const message = 'Mouse position: ' + x + ',' + y// +' with overlaps '+elements.length;
+      // console.log('nodes', myTree.nodes, 'objects', myTree.objects);
+      //console.log(message);
+      const sortedElems = sortPoints({x:x, y:y}, elements);
+      if(hoverCtx.current) {
+        const [{loc={}, entry}={}]= sortedElems;
+        const ctx = hoverCtx.current
+        hoveredStar.current = {loc, entry}
+        drawSelectedStar(ctx, hoveredStar.current)
+        
+
+        if(onStarHover && entry) onStarHover(entry)
+      }
+    }
+    
+
+  }
+
+  const {canvasProps} = useTouchTracking(
+    ({x,y}) => setPan({x:pan.x+x/zoom, y:pan.y+y/zoom}), 
+    delta =>  setZoom(clamp(zoom+zoom*delta/25, 0.1 , 10000000000)),
+    handleCanvasHover)
 
   const canvasStyle = {    
     position:'absolute',
@@ -140,36 +223,38 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
   }
 
 
-  const handleCanvasHover = (mousePos, event) => {
-    if(mouseDown) {
+  // const handleCanvasHover = (mousePos, event) => {
+  //   if(mouseDown) {
       
-      const {movementX, movementY} = event;
-      console.log('movement', movementX, movementY);
-      setPan({x:pan.x+movementX/zoom, y:pan.y+movementY/zoom})
-    } else {
-      const {x,y} = getWorldCoords(mousePos)
-      const elements = myTree.retrieve({x:Math.abs(x), y:Math.abs(y), width:8, height:8});
-      //const message = 'Mouse position: ' + x + ',' + y// +' with overlaps '+elements.length;
-      // console.log('nodes', myTree.nodes, 'objects', myTree.objects);
-      //console.log(message);
-      const sortedElems = sortPoints({x:x, y:y}, elements);
-      if(hoverCtx.current) {
-        const [{loc={}, entry}={}]= sortedElems;
-        const ctx = hoverCtx.current
-        hoveredStar.current = {loc, entry}
-        drawSelectedStar(ctx, hoveredStar.current)
+  //     const {movementX, movementY} = event;
+  //     console.log('movement', movementX, movementY);
+  //     setPan({x:pan.x+movementX/zoom, y:pan.y+movementY/zoom})
+  //   } else {
+  //     const {x,y} = getWorldCoords(mousePos)
+  //     const elements = myTree.retrieve({x:Math.abs(x), y:Math.abs(y), width:8, height:8});
+  //     //const message = 'Mouse position: ' + x + ',' + y// +' with overlaps '+elements.length;
+  //     // console.log('nodes', myTree.nodes, 'objects', myTree.objects);
+  //     //console.log(message);
+  //     const sortedElems = sortPoints({x:x, y:y}, elements);
+  //     if(hoverCtx.current) {
+  //       const [{loc={}, entry}={}]= sortedElems;
+  //       const ctx = hoverCtx.current
+  //       hoveredStar.current = {loc, entry}
+  //       drawSelectedStar(ctx, hoveredStar.current)
         
 
-        if(onStarHover && entry) onStarHover(entry)
-      }
-    }
+  //       if(onStarHover && entry) onStarHover(entry)
+  //     }
+  //   }
     
 
-  }
+  // }
 
-  const handleScroll = ({deltaMode, deltaY}) => {
+  const handleScroll = e => {
+    const {deltaMode, deltaY} = e;
     console.log(deltaMode, deltaY)
     setZoom(clamp(zoom+zoom*deltaY/10, 0.1 , 10000000000))
+    e.preventDefault();
   }
   return (
     <div>
@@ -182,6 +267,7 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
       onDoubleClick={(mousePos) => setPan({x:-hoveredStar.current.loc.x, y:-hoveredStar.current.loc.y})}
       onWheel={handleScroll} 
       onContextChange={c => hoverCtx.current = c}
+      {...canvasProps}
       />
     </div>
   );

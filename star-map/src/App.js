@@ -24,6 +24,10 @@ const parseStar = ([identifier,ra,dec,par,temp, radius, lum], scaleFactor=1) => 
   }
 }
 
+document.addEventListener('gesturestart', function (e) {
+  e.preventDefault();
+});
+
 function App() {
   return (
     <div className="App">

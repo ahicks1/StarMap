@@ -8,6 +8,8 @@ function getMousePos(canvas, evt) {
     y: evt.clientY - rect.top
   };
 }
+const myDist = ({x:x1,y:y1}, {x:x2,y:y2}) => ((x1-x2)*(x1-x2))+((y1-y2)*(y1-y2));
+
 const CanvasWrapper = ({onContextChange, onMouseMove, onDoubleClick, onMouseLeave, style, ...props}) => {
   
   const canvasRef = useRef(null);
@@ -44,6 +46,7 @@ const CanvasWrapper = ({onContextChange, onMouseMove, onDoubleClick, onMouseLeav
       width={style.width} 
       height={style.height}
       onMouseMove={handleCanvasHover}
+     
       onDoubleClick={handleCanvasClick}
       onMouseLeave={onMouseLeave}
       {...props}
