@@ -1,7 +1,7 @@
 import React from 'react';
 import {polarToCart, colorTemperatureToRGB, clamp, numToHex} from './DisplayUtils';
 import './App.css';
-import entries from './data/165kEntriesCube.json'
+import entries from './data/300kEntriesCube.json'
 import MainMap from './components/MainMap';
 
 
@@ -13,7 +13,7 @@ const parseStar = ([identifier,ra,dec,par,temp, radius, lum], scaleFactor=1) => 
   const color = colorTemperatureToRGB(temp);
   const size = Math.log10(lum+1)+1;//lum>100?(clamp(1+(Math.l(lum+1)),0,3)):1
   const opacity = numToHex(Math.floor(clamp(Math.log10(lum+1),0.5, 1)*255))
-  const isVisible = Math.abs(height) < 2000 && Math.abs(x) < 10000 &&  Math.abs(y) < 10000;
+  const isVisible = true//Math.abs(height) < 2000 && Math.abs(x) < 10000 &&  Math.abs(y) < 10000;
   return {
     x,
     y,

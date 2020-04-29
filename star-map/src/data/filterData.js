@@ -23,7 +23,7 @@ const filteredData = data.data.filter( ([identifier,ra,dec,par,temp, radius, lum
 })
 
 console.log(filteredData.length)
-fs.writeFile('165kEntriesCube.json', JSON.stringify(filteredData), data => console.log('Done'))
+//fs.writeFile('165kEntriesCube.json', JSON.stringify(filteredData), data => console.log('Done'))
 
 // readFilePromise('./star-map/src/data/1587957625397O-result.json').then(data => {
 //     const rawLines = data.split('\n');

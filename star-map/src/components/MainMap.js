@@ -61,7 +61,6 @@ const useTouchTracking = (panEvent, zoomEvent, hoverEvent) => {
         e.preventDefault();
       },
       onTouchMove:e => {
-        console.log({...e})
         if(e.touches.length == 2) {
           if(activeTouches.current[e.touches[0].identifier] && activeTouches.current[e.touches[1].identifier]) {
             const o1 = activeTouches.current[e.touches[0].identifier];
@@ -107,7 +106,6 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
     if(mouseDown) {
       
       const {movementX, movementY} = event;
-      console.log('movement', movementX, movementY);
       setPan({x:pan.x+movementX/zoom, y:pan.y+movementY/zoom})
     } else {
       const {x,y} = getWorldCoords(mousePos)
@@ -151,7 +149,7 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
   const getWorldCoords = useCallback(({x,y}) => ({x:(x-(width/2))/zoom-pan.x, y:(y-(height/2))/zoom-pan.y}),[zoom, width, height, pan])
 
   useEffect(() => {
-    const pData = data.map(entry => ({...parseStar(entry), entry}));
+    const pData = data.map(entry => ({...parseStar(entry), entry})).sort((a, b) => b.entry[6] - a.entry[6]);
     setParsedData(pData);
     myTree.clear();
     pData.forEach(({x, y, color, size, entry}) => myTree.insert({
@@ -177,15 +175,13 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
       ctx.fillRect(center.x,center.y,5,5);
       ctx.fillStyle = "#FFFFFF66";
       let count = 0;
-      console.log('redrawing with pan', pan)
       parsedData.forEach(({x, y, color, size, opacity, isVisible, entry}) => {
         if ( isVisible) {
           const {x:sX, y:sY} = getScreenCoords({x,y})
-          if(sX > 0 && sX < width && sY > 0 && sY < height) {
+          if(sX > 0 && sX < width && sY > 0 && sY < height && count < 50000) {
             const s = clamp((entry[5]*2*zoom)/4.435e+7, size, 1000)
             ctx.fillStyle = color;
             if(s === size) ctx.fillStyle = color+opacity
-            
             ctx.fillRect(sX-s/2,sY-s/2,s,s);
             count++;
           }
@@ -212,7 +208,6 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
     ctx.font = "12px Verdana";
     ctx.fillStyle = "#FFFFFF";
     if(entry) {
-      console.log('Hovered star loc', loc)
       const [identifier,ra,dec,par,temp, radius, lum] = entry;
       ctx.fillText('Star: '+identifier, 20, 20);
       ctx.fillText('Distance: '+(1000/par).toFixed(1)+' Parsecs', 20, 40);
@@ -252,7 +247,6 @@ function MainMap({data, parseStar, onStarHover, onStarSelect}) {
 
   const handleScroll = e => {
     const {deltaMode, deltaY} = e;
-    console.log(deltaMode, deltaY)
     setZoom(clamp(zoom+zoom*deltaY/10, 0.1 , 10000000000))
     e.preventDefault();
   }
